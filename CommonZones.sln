@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32317.152
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommonZones", "CommonZones.csproj", "{A8309DF3-341F-4AD2-8652-F2888F611D9B}"
+EndProject
+Project("{911E67C6-3D85-4FCE-B560-20A9C3E3FF48}") = "Unturned", "..\..\..\..\..\..\..\SteamCMD\steamapps\common\U3DS\Unturned.exe", "{06E4A9E5-1729-4439-87EE-33C651F23106}"
+	ProjectSection(DebuggerProjectSystem) = preProject
+		PortSupplier = 00000000-0000-0000-0000-000000000000
+		Executable = C:\SteamCMD\steamapps\common\U3DS\Unturned.exe
+		RemoteMachine = DANIEL-DESKTOP
+		StartingDirectory = C:\SteamCMD\steamapps\common\U3DS
+		Arguments = -batchmode -nographics +insecureserver/TestServer2
+		Environment = Default
+		LaunchingEngine = 5fff7536-0c87-462d-8fd2-7971d948e6dc
+		UseLegacyDebugEngines = No
+		LaunchSQLEngine = No
+		AttachLaunchAction = No
+		IORedirection = Auto
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Debug|x64.Build.0 = Debug|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Release|x64.ActiveCfg = Release|Any CPU
+		{A8309DF3-341F-4AD2-8652-F2888F611D9B}.Release|x64.Build.0 = Release|Any CPU
+		{06E4A9E5-1729-4439-87EE-33C651F23106}.Debug|Any CPU.ActiveCfg = Release|x64
+		{06E4A9E5-1729-4439-87EE-33C651F23106}.Debug|x64.ActiveCfg = Release|x64
+		{06E4A9E5-1729-4439-87EE-33C651F23106}.Release|Any CPU.ActiveCfg = Release|x64
+		{06E4A9E5-1729-4439-87EE-33C651F23106}.Release|x64.ActiveCfg = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9B380A28-4C73-44CD-8C11-5B2B794A5C44}
+	EndGlobalSection
+EndGlobal
