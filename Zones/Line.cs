@@ -33,6 +33,17 @@ public readonly struct Line
         this.Length = Vector2.Distance(pt1, pt2);
     }
     /// <summary>
+    /// Create a line from two end points (order not important).
+    /// </summary>
+    public Line(float p1x, float p1z, float p2x, float p2z)
+    {
+        this.Point1 = new Vector2(p1x, p1z);
+        this.Point2 = new Vector2(p2x, p2z);
+        this.m = (p1z - p2z) / (p1x - p2x);
+        this.b = -1 * (m * p1x - p1z);
+        this.Length = Vector2.Distance(this.Point1, this.Point2);
+    }
+    /// <summary>
     /// Round to the closest spacing that can fit an exact number of points.
     /// </summary>
     public readonly float NormalizeSpacing(float baseSpacing)

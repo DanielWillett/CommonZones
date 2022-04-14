@@ -65,6 +65,7 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
         Zone.OnLevelLoaded();
         ZoneProvider = new JsonZoneProvider(new FileInfo(DataDirectory + "zones.json"));
         ZoneProvider.Reload();
+        ZonePlayerComponent.UIInit();
     }
 
     private void OnPlayerConnected(CSteamID playerid)

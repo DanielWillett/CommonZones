@@ -363,10 +363,6 @@ internal struct ZoneModel : IXmlSerializable
                         }
                     }
                 }
-                else if (reader.NodeType == XmlNodeType.Element)
-                {
-                        
-                }
             }
         }
         ValidateRead();

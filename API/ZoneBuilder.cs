@@ -70,7 +70,7 @@ public class ZoneBuilder
             this.WithPoints(value);
         } 
     }
-    private EZoneType ZoneType = EZoneType.INVALID;
+    internal EZoneType ZoneType = EZoneType.INVALID;
     /// <summary>Set the name.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ZoneBuilder WithName(string name)

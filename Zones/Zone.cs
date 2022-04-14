@@ -1,4 +1,5 @@
-﻿using CommonZones.Models;
+﻿using CommonZones.API;
+using CommonZones.Models;
 using CommonZones.Tags;
 using SDG.Unturned;
 using System;
@@ -16,6 +17,8 @@ public abstract class Zone
     protected static float ImageMultiplier;
     private static ushort lvlSize;
     private static ushort lvlBrdr;
+    /// <summary>Returns a zone builder scaled to world coordinates.</summary>
+    internal abstract ZoneBuilder Builder { get; }
     internal static void OnLevelLoaded()
     {
         lvlSize = Level.size;

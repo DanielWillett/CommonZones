@@ -1,4 +1,5 @@
-﻿using CommonZones.Models;
+﻿using CommonZones.API;
+using CommonZones.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,32 +34,35 @@ public class CircleZone : Zone
         _bounds = new Vector4(Center.x - _radius, Center.y - _radius, Center.x + _radius, Center.y + _radius);
         SucessfullyParsed = true;
     }
+    public static void CalculateParticleSpawnPoints(out Vector2[] points, float radius, Vector2 center, float spacing = SPACING)
+    {
+        float pi2F = 2f * Mathf.PI;
+        float circumference = pi2F * radius;
+        float answer = circumference / spacing;
+        int remainder = (int)Mathf.Round((answer - Mathf.Floor(answer)) * spacing);
+        int canfit = (int)Mathf.Floor(answer);
+        if (remainder != 0)
+        {
+            if (remainder < SPACING / 2)            // extend all others
+                spacing = circumference / canfit;
+            else                                    // add one more and subtend all others
+                spacing = circumference / ++canfit;
+        }
+        List<Vector2> pts = new List<Vector2>(canfit + 1);
+        float angleRad = spacing / radius;
+        for (float i = 0; i < pi2F; i += angleRad)
+        {
+            pts.Add(new Vector2(center.x + Mathf.Cos(i) * radius, center.y + Mathf.Sin(i) * radius));
+        }
+        points = pts.ToArray();
+    }
     /// <inheritdoc/>
     public override Vector2[] GetParticleSpawnPoints(out Vector2[] corners, out Vector2 center)
     {
         corners = Array.Empty<Vector2>();
         center = Center;
         if (_particleSpawnPoints != null) return _particleSpawnPoints;
-        float pi2F = 2f * Mathf.PI;
-        float circumference = pi2F * _radius;
-        float spacing = SPACING;
-        float answer = circumference / spacing;
-        int remainder = (int)Mathf.Round((answer - Mathf.Floor(answer)) * spacing);
-        int canfit = (int)Mathf.Floor(answer);
-        if (remainder != 0)
-        {
-            if (remainder < SPACING / 2)     // extend all others
-                spacing = circumference / canfit;
-            else                                  //add one more and subtend all others
-                spacing = circumference / (canfit + 1);
-        }
-        List<Vector2> rtnSpawnPoints = new List<Vector2>();
-        float angleRad = spacing / _radius;
-        for (float i = 0; i < pi2F; i += angleRad)
-        {
-            rtnSpawnPoints.Add(new Vector2(Center.x + (Mathf.Cos(i) * _radius), Center.y + (Mathf.Sin(i) * _radius)));
-        }
-        _particleSpawnPoints = rtnSpawnPoints.ToArray();
+        CalculateParticleSpawnPoints(out _particleSpawnPoints, _radius, Center);
         return _particleSpawnPoints;
     }
     /// <inheritdoc/>
@@ -81,4 +85,25 @@ public class CircleZone : Zone
     }
     /// <inheritdoc/>
     public override string ToString() => $"{base.ToString()}. Radius: {_radius}";
+    /// <inheritdoc/>
+    internal override ZoneBuilder Builder
+    {
+        get
+        {
+            ZoneBuilder zb = new ZoneBuilder()
+            {
+                ZoneType = EZoneType.CIRCLE,
+                MinHeight = MinHeight,
+                MaxHeight = MaxHeight,
+                Name = Name,
+                ShortName = ShortName,
+                Tags = Data.Tags,
+                UseMapCoordinates = false,
+                X = Center.x,
+                Z = Center.y
+            };
+            zb.ZoneData.Radius = _radius;
+            return zb;
+        }
+    }
 }

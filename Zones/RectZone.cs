@@ -1,4 +1,5 @@
-﻿using CommonZones.Models;
+﻿using CommonZones.API;
+using CommonZones.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,8 @@ public class RectZone : Zone
     private readonly Line[] lines;
     private readonly Vector2[] Corners;
     private const float SPACING = 10f;
+
+
     /// <inheritdoc/>
     internal RectZone(ref ZoneModel data) : base(ref data)
     {
@@ -44,24 +47,50 @@ public class RectZone : Zone
         GetParticleSpawnPoints(out _, out _);
         SucessfullyParsed = true;
     }
+    /// <param name="corners">Only populated if <see cref="lines"/> <see langword="is null"/></param>
+    public static void CalculateParticleSpawnPoints(out Vector2[] points, out Vector2[] corners, Vector2 size, Vector2 center, float spacing = SPACING, Line[]? lines = null)
+    {
+        List<Vector2> rtnSpawnPoints = new List<Vector2>(64);
+        if (lines != null) 
+            corners = Array.Empty<Vector2>();
+        else
+            corners = new Vector2[4]
+            {
+                new Vector2(center.x - size.x / 2, center.y - size.y / 2), //tl
+                new Vector2(center.x + size.x / 2, center.y - size.y / 2), //tr
+                new Vector2(center.x + size.x / 2, center.y + size.y / 2), //br
+                new Vector2(center.x - size.x / 2, center.y + size.y / 2)  //bl
+            };
+        if (lines == null)
+            lines = new Line[4]
+            {
+                new Line(corners[0], corners[1]), // tl -> tr
+                new Line(corners[1], corners[2]), // tr -> br
+                new Line(corners[2], corners[3]), // br -> bl
+                new Line(corners[3], corners[0]), // bl -> tl
+            };
+        for (int i1 = 0; i1 < lines.Length; i1++)
+        {
+            ref Line line = ref lines[i1];
+            if (line.Length == 0) continue;
+            float distance = line.NormalizeSpacing(spacing);
+            if (distance != 0) // prevent infinite loops
+            {
+                for (float i = distance; i < line.Length; i += distance)
+                {
+                    rtnSpawnPoints.Add(line.GetPointFromP1(i));
+                }
+            }
+        }
+        points = rtnSpawnPoints.ToArray();
+    }
     /// <inheritdoc/>
     public override Vector2[] GetParticleSpawnPoints(out Vector2[] corners, out Vector2 center)
     {
         corners = Corners;
         center = Center;
         if (_particleSpawnPoints != null) return _particleSpawnPoints;
-        List<Vector2> rtnSpawnPoints = new List<Vector2>();
-        foreach (Line line in lines)
-        {
-            if (line.Length == 0) continue;
-            float distance = line.NormalizeSpacing(SPACING);
-            if (distance != 0) // prevent infinite loops
-                for (float i = distance; i < line.Length; i += distance)
-                {
-                    rtnSpawnPoints.Add(line.GetPointFromP1(i));
-                }
-        }
-        _particleSpawnPoints = rtnSpawnPoints.ToArray();
+        CalculateParticleSpawnPoints(out _particleSpawnPoints, out _, Size, Center, SPACING, lines);
         return _particleSpawnPoints;
     }
     /// <inheritdoc/>
@@ -77,4 +106,27 @@ public class RectZone : Zone
     }
     /// <inheritdoc/>
     public override string ToString() => $"{base.ToString()}. Size: {Size.x}x{Size.y}";
+
+    /// <inheritdoc/>
+    internal override ZoneBuilder Builder
+    {
+        get
+        {
+            ZoneBuilder zb = new ZoneBuilder()
+            {
+                ZoneType = EZoneType.RECTANGLE,
+                MinHeight = MinHeight,
+                MaxHeight = MaxHeight,
+                Name = Name,
+                ShortName = ShortName,
+                Tags = Data.Tags,
+                UseMapCoordinates = false,
+                X = Center.x,
+                Z = Center.y
+            };
+            zb.ZoneData.SizeX = Size.x;
+            zb.ZoneData.SizeZ = Size.y;
+            return zb;
+        }
+    }
 }

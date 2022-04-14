@@ -1,4 +1,5 @@
-﻿using SDG.Unturned;
+﻿using SDG.NetTransport;
+using SDG.Unturned;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -85,14 +86,18 @@ internal static class Util
             return Vector3.zero;
         }
     }
-    public static void TriggerEffectReliable(ushort ID, CSteamID player, Vector3 Position)
+    public static void TriggerEffectReliable(ushort ID, CSteamID player, Vector3 position)
     {
         TriggerEffectParameters p = new TriggerEffectParameters(ID)
         {
-            position = Position,
+            position = position,
             reliable = true,
             relevantPlayerID = player
         };
         EffectManager.triggerEffect(p);
+    }
+    public static void TriggerEffectReliable(EffectAsset asset, ITransportConnection connection, Vector3 position)
+    {
+        EffectManager.sendEffectReliable(asset.id, connection, position);
     }
 }

@@ -1,4 +1,5 @@
-﻿using CommonZones.Models;
+﻿using CommonZones.API;
+using CommonZones.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -54,6 +55,54 @@ public class PolygonZone : Zone
         _boundArea = (Bounds.z - Bounds.x) * (Bounds.w - Bounds.y);
         SucessfullyParsed = true;
     }
+    public static void CalculateParticleSpawnPoints(out Vector2[] points, Vector2[] corners, float spacing = SPACING, Line[]? lines = null)
+    {
+        List<Vector2> rtnSpawnPoints = new List<Vector2>(64);
+        if (lines == null)
+        {
+            lines = new Line[corners.Length];
+            for (int i = 0; i < corners.Length; i++)
+                lines[i] = new Line(corners[i], corners[i == corners.Length - 1 ? 0 : i + 1]);
+        }
+        for (int i1 = 0; i1 < lines.Length; i1++)
+        {
+            ref Line line = ref lines[i1];
+            if (line.Length == 0) continue;
+            float distance = line.NormalizeSpacing(spacing);
+            if (distance != 0) // prevent infinite loops
+            {
+                for (float i = distance; i < line.Length; i += distance)
+                {
+                    rtnSpawnPoints.Add(line.GetPointFromP1(i));
+                }
+            }
+        }
+        points = rtnSpawnPoints.ToArray();
+    }
+    public static void CalculateParticleSpawnPoints(out Vector2[] points, List<Vector2> corners, float spacing = SPACING, Line[]? lines = null)
+    {
+        List<Vector2> rtnSpawnPoints = new List<Vector2>(64);
+        if (lines == null)
+        {
+            lines = new Line[corners.Count];
+            for (int i = 0; i < corners.Count; i++)
+                lines[i] = new Line(corners[i], corners[i == corners.Count - 1 ? 0 : i + 1]);
+        }
+        for (int i1 = 0; i1 < lines.Length; i1++)
+        {
+            ref Line line = ref lines[i1];
+            if (line.Length == 0) continue;
+            float distance = line.NormalizeSpacing(spacing);
+            if (distance != 0) // prevent infinite loops
+            {
+                for (float i = distance; i < line.Length; i += distance)
+                {
+                    rtnSpawnPoints.Add(line.GetPointFromP1(i));
+                }
+            }
+        }
+        points = rtnSpawnPoints.ToArray();
+    }
 
     /// <inheritdoc/>
     public override Vector2[] GetParticleSpawnPoints(out Vector2[] corners, out Vector2 center)
@@ -61,17 +110,7 @@ public class PolygonZone : Zone
         corners = Points;
         center = Center;
         if (_particleSpawnPoints != null) return _particleSpawnPoints;
-        List<Vector2> rtnSpawnPoints = new List<Vector2>();
-        foreach (Line line in Lines)
-        {
-            if (line.Length == 0) continue;
-            float distance = line.NormalizeSpacing(SPACING);
-            for (float i = distance; i < line.Length; i += distance)
-            {
-                rtnSpawnPoints.Add(line.GetPointFromP1(i));
-            }
-        }
-        _particleSpawnPoints = rtnSpawnPoints.ToArray();
+        CalculateParticleSpawnPoints(out _particleSpawnPoints, Points, SPACING, Lines);
         return _particleSpawnPoints;
     }
     /// <inheritdoc/>
@@ -107,5 +146,26 @@ public class PolygonZone : Zone
             sb.Append($"Line {i + 1}: ({Lines[i].Point1.x}, {Lines[i].Point1.y}) to ({Lines[i].Point2.x}, {Lines[i].Point2.y}).\n");
         }
         return sb.ToString();
+    }
+    /// <inheritdoc/>
+    internal override ZoneBuilder Builder
+    {
+        get
+        {
+            ZoneBuilder zb = new ZoneBuilder()
+            {
+                ZoneType = EZoneType.POLYGON,
+                MinHeight = MinHeight,
+                MaxHeight = MaxHeight,
+                Name = Name,
+                ShortName = ShortName,
+                Tags = Data.Tags,
+                UseMapCoordinates = false,
+                X = Center.x,
+                Z = Center.y
+            };
+            zb.ZoneData.Points = Points;
+            return zb;
+        }
     }
 }

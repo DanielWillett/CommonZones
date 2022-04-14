@@ -47,6 +47,27 @@ namespace CommonZones
             {
                 List(command, player);
             }
+            else if (operation.Equals("edit", StringComparison.OrdinalIgnoreCase))
+            {
+                if (player.Player.TryGetComponent(out ZonePlayerComponent comp))
+                    comp.EditCommand(command);
+                else
+                    player.SendChat("zone_syntax");
+            }
+            else if (operation.Equals("create", StringComparison.OrdinalIgnoreCase))
+            {
+                if (player.Player.TryGetComponent(out ZonePlayerComponent comp))
+                    comp.CreateCommand(command);
+                else
+                    player.SendChat("zone_syntax");
+            }
+            else if (operation.Equals("util", StringComparison.OrdinalIgnoreCase))
+            {
+                if (player.Player.TryGetComponent(out ZonePlayerComponent comp))
+                    comp.UtilCommand(command);
+                else
+                    player.SendChat("zone_syntax");
+            }
             else
             {
                 player.SendChat("zone_syntax");
@@ -127,7 +148,7 @@ namespace CommonZones
                 player.Player.teleportToLocationUnsafe(hit.point, 0);
             }
         }
-        private Zone? GetZone(string nameInput)
+        internal static Zone? GetZone(string nameInput)
         {
             for (int i = 0; i < CommonZones.ZoneProvider.Zones.Count; i++)
             {                
@@ -141,7 +162,7 @@ namespace CommonZones
             }
             return null;
         }
-        private Zone? GetZone(Vector3 position)
+        internal static Zone? GetZone(Vector3 position)
         {
             for (int i = 0; i < CommonZones.ZoneProvider.Zones.Count; i++)
             {                

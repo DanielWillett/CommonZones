@@ -70,9 +70,6 @@
       <HintPath>..\..\..\..\..\..\..\SteamCMD\steamapps\common\U3DS\Unturned_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
     </Reference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="API\Tags\" />
-  </ItemGroup>
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <Exec Command="SETLOCAL&#xD;&#xA;SET &quot;sourcedir=$(OutDir)&#xD;&#xA;FOR %25%25a IN (&quot;%25sourcedir%25\*&quot;) DO IF /i NOT &quot;%25%25~nxa&quot;==&quot;$(ProjectName).dll&quot; DEL &quot;%25%25a&quot;&#xD;&#xA;FOR %25%25a IN (&quot;%25sourcedir%25\CommonZones\*&quot;) DO IF /i NOT &quot;%25%25~nxa&quot;==&quot;zones.json&quot; DEL &quot;%25%25a&quot;" />
   </Target>
