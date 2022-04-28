@@ -1,13 +1,19 @@
 ﻿using CommonZones.API;
+using CommonZones.API.Tags;
 using CommonZones.Models;
 using CommonZones.Tags;
 using SDG.Unturned;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace CommonZones.Zones;
+/// <summary>
+/// Do not depend on object equality for your plugins. Zone objects will be cycled every time the file is re-read.
+/// The equality operators and function will compare names with <see cref="StringComparison.OrdinalIgnoreCase"/>. This is the most reliable way to compare <see cref="Zone"/>s.
+/// </summary>
 public abstract class Zone
 {
     private static bool isReady = false;
@@ -112,36 +118,67 @@ public abstract class Zone
     /// <summary>
     /// Array of all tags applied to this zone. Check <see cref="CommonZones.Tags.Tags"/> for more info.
     /// </summary>
-    public TagData[] Tags => _tags;
-    internal bool AddTag(string tagData)
+    public ReadOnlyCollection<TagData> Tags => Array.AsReadOnly(_tags);
+    internal TagHandler?[] _tagHandlers;
+    /// <summary>
+    /// Array of all tag handlers applied to this zone. Should match up with <see cref="Tags"/>.
+    /// </summary>
+    public ReadOnlyCollection<TagHandler?> TagHandlers => Array.AsReadOnly(_tagHandlers);
+    /// <summary>
+    /// Safely parse and add a tag to the list and initialize it's <see cref="TagHandler"/>.
+    /// </summary>
+    /// <param name="tagData">See <see cref="Tags.Tags"/> for more info.</param>
+    /// <returns>If the tag was successfully parsed.</returns>
+    public bool AddTag(string tagData)
     {
-        TagData tag = global::CommonZones.Tags.Tags.ParseTag(tagData);
+        TagData tag = API.Tags.Tags.ParseTag(tagData);
         if (!string.IsNullOrEmpty(tag.TagName))
         {
+            Util.AddToArrayManaged(ref _tagHandlers, null);
             Util.AddToArrayManaged(ref _tags, tag);
+            TagManager.LoadTag(this, _tags.Length - 1);
             return true;
         }
         return false;
     }
-    internal bool RemoveTag(string tagData)
+    /// <summary>
+    /// Safely remove a tag exactly matching <paramref name="tagData"/> from the list and remove it's <see cref="TagHandler"/>.
+    /// </summary>
+    /// <param name="tagData">See <see cref="Tags.Tags"/> for more info.</param>
+    /// <returns>If the tag was successfully found and removed.</returns>
+    public bool RemoveTag(string tagData)
     {
-        for (int i = 0; i < Tags.Length; ++i)
+        TagData data = API.Tags.Tags.ParseTag(tagData);
+        for (int i = 0; i < _tags.Length; ++i)
         {
-            if (Tags[i].Original.Equals(tagData, StringComparison.Ordinal))
+            if (Tags[i] == data)
             {
+                TagHandler? tagHandler = _tagHandlers[i];
+                if (tagHandler != null)
+                    tagHandler.Dispose();
                 Util.RemoveFromArrayManaged(ref _tags, i);
+                Util.RemoveFromArrayManaged(ref _tagHandlers, i);
                 return true;
             }
         }
         return false;
     }
-    internal bool RemoveTag(TagData tagData)
+    /// <summary>
+    /// Safely remove a tag exactly matching <paramref name="tagData"/> from the list and remove it's <see cref="TagHandler"/>.
+    /// </summary>
+    /// <param name="tagData">Data about a tag.</param>
+    /// <returns>If the tag was successfully found and removed.</returns>
+    public bool RemoveTag(TagData tagData)
     {
-        for (int i = 0; i < Tags.Length; ++i)
+        for (int i = 0; i < _tags.Length; ++i)
         {
-            if (Tags[i].Equals(tagData))
+            if (Tags[i] == tagData)
             {
+                TagHandler? tagHandler = _tagHandlers[i];
+                if (tagHandler != null)
+                    tagHandler.Dispose();
                 Util.RemoveFromArrayManaged(ref _tags, i);
+                Util.RemoveFromArrayManaged(ref _tagHandlers, i);
                 return true;
             }
         }
@@ -201,10 +238,13 @@ public abstract class Zone
     /// <summary>
     /// Zones must set <see cref="SucessfullyParsed"/> to <see langword="true"/>.
     /// </summary>
+    /// <exception cref="InvalidOperationException">Tried to construct a zone before the level has loaded.</exception>
     internal Zone(ref ZoneModel data)
     {
-        this.Data = data;
         this.UseMapCoordinates = data.UseMapCoordinates;
+        if (UseMapCoordinates && !isReady)
+            throw new InvalidOperationException("Tried to construct a zone before the level has loaded.");
+        this.Data = data;
         this.Type = data.ZoneType;
         this.ShortName = data.ShortName;
         this.Name = data.Name;
@@ -213,13 +253,14 @@ public abstract class Zone
         if (data.Tags == null)
         {
             this._tags = new TagData[0];
+            this._tagHandlers = new TagHandler[0];
         }
         else
         {
             this._tags = new TagData[data.Tags.Length];
             for (int i = 0; i < _tags.Length; ++i)
             {
-                this._tags[i] = global::CommonZones.Tags.Tags.ParseTag(data.Tags[i]);
+                this._tags[i] = API.Tags.Tags.ParseTag(data.Tags[i]);
             }
             for (int i = _tags.Length - 1; i >= 0; --i)
             {
@@ -231,6 +272,7 @@ public abstract class Zone
                     Util.RemoveFromArrayManaged(ref _tags, i);
                 }
             }
+            this._tagHandlers = new TagHandler[_tags.Length];
         }
         if (data.UseMapCoordinates)
         {
@@ -243,6 +285,26 @@ public abstract class Zone
             this.Center = new Vector2(_center.x, _center.z);
         }
     }
+    /// <summary>Compares <see cref="Name"/></summary>
+    public static bool operator ==(Zone? left, Zone? right)
+    {
+        if (left is null)
+            return right is null;
+        if (right is null) return false;
+        return !string.IsNullOrEmpty(left.Name) && !string.IsNullOrEmpty(right.Name) && left.Name.Equals(right.Name, StringComparison.OrdinalIgnoreCase);
+    }
+    /// <summary>Compares <see cref="Name"/></summary>
+    public static bool operator !=(Zone? left, Zone? right) => !(left == right);
+    /// <summary>Compares <see cref="Name"/></summary>
+    public override bool Equals(object obj)
+    {
+        if (this is null)
+            return obj is null;
+        if (obj is not Zone z) return false;
+        return this == z;
+    }
+    /// <summary>Hashes <see cref="Name"/></summary>
+    public override int GetHashCode() => Name.GetHashCode();
 }
 public enum EZoneType : byte
 {

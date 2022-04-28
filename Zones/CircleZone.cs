@@ -84,7 +84,7 @@ public class CircleZone : Zone
         return sqrDistance <= _radius * _radius;
     }
     /// <inheritdoc/>
-    public override string ToString() => $"{base.ToString()}. Radius: {_radius}";
+    public override string ToString() => $"{base.ToString()} Radius: {_radius}";
     /// <inheritdoc/>
     internal override ZoneBuilder Builder
     {

@@ -68,7 +68,7 @@ public partial class CommonZones
         new TranslationListEntry("edit_zone_short_name_success", "{{color=#e6e3d5}}Set short name to \"{0}\".{{/color}}"),
         new TranslationListEntry("edit_zone_existing_badvalue", "{{color=#ff8c69}}Edit existing zone requires the zone name as a parameter. Alternatively stand in the zone (without overlapping another).{{/color}}"),
         new TranslationListEntry("edit_zone_existing_in_progress", "{{color=#ff8c69}}Cancel or finalize the zone you're currently editing first.{{/color}}"),
-        new TranslationListEntry("edit_zone_existing_success", "{{color=#ff8c69}}Now editing {0}.{{/color}}"),
+        new TranslationListEntry("edit_zone_existing_success", "{{color=#e6e3d5}}Started editing zone {0}, a {1} zone.{{/color}}"),
 
 
         // edit zone ui

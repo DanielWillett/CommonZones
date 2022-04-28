@@ -1,6 +1,7 @@
 ﻿using CommonZones.Zones;
 using Rocket.API;
 using Rocket.Unturned.Player;
+using SDG.NetTransport;
 using SDG.Unturned;
 using Steamworks;
 using System;
@@ -95,27 +96,43 @@ namespace CommonZones
             }
             Vector2[] points = zone.GetParticleSpawnPoints(out Vector2[] corners, out Vector2 center);
             CSteamID channel = player.Player.channel.owner.playerID.steamID;
+            bool hasui = ZonePlayerComponent._airdrop != null;
             foreach (Vector2 point in points)
             {   // Border
                 Vector3 pos = new Vector3(point.x, 0f, point.y);
                 pos.y = Util.GetHeight(pos, zone.MinHeight);
-                Util.TriggerEffectReliable(117, channel, pos); // yellow paintball splatter
-                Util.TriggerEffectReliable(120, channel, pos); // airdrop
+                Util.TriggerEffectReliable(ZonePlayerComponent._side.id, channel, pos);
+                if (hasui)
+                    Util.TriggerEffectReliable(ZonePlayerComponent._airdrop!.id, channel, pos);
             }
             foreach (Vector2 point in corners)
             {   // Corners
                 Vector3 pos = new Vector3(point.x, 0f, point.y);
                 pos.y = Util.GetHeight(pos, zone.MinHeight);
-                Util.TriggerEffectReliable(115, channel, pos); // red paintball splatter
-                Util.TriggerEffectReliable(120, channel, pos); // airdrop
+                Util.TriggerEffectReliable(ZonePlayerComponent._corner.id, channel, pos);
+                if (hasui)
+                    Util.TriggerEffectReliable(ZonePlayerComponent._airdrop!.id, channel, pos);
             }
             {   // Center
                 Vector3 pos = new Vector3(center.x, 0f, center.y);
                 pos.y = Util.GetHeight(pos, zone.MinHeight);
-                Util.TriggerEffectReliable(113, channel, pos); // purple paintball splatter
-                Util.TriggerEffectReliable(120, channel, pos); // airdrop
+                Util.TriggerEffectReliable(ZonePlayerComponent._center.id, channel, pos);
+                if (hasui)
+                    Util.TriggerEffectReliable(ZonePlayerComponent._airdrop!.id, channel, pos);
             }
+            player.Player.StartCoroutine(ClearPoints(player.Player));
             player.SendChat("zone_visualize_success", (points.Length + corners.Length + 1).ToString(CommonZones.Locale), zone.Name);
+        }
+        private IEnumerator<WaitForSeconds> ClearPoints(Player player)
+        {
+            yield return new WaitForSeconds(60f);
+            if (player == null) yield break;
+            ITransportConnection channel = player.channel.owner.transportConnection;
+            if (ZonePlayerComponent._airdrop != null)
+                EffectManager.askEffectClearByID(ZonePlayerComponent._airdrop.id, channel);
+            EffectManager.askEffectClearByID(ZonePlayerComponent._side.id, channel);
+            EffectManager.askEffectClearByID(ZonePlayerComponent._corner.id, channel);
+            EffectManager.askEffectClearByID(ZonePlayerComponent._center.id, channel);
         }
         private void List(string[] command, UnturnedPlayer player)
         {

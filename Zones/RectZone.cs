@@ -105,7 +105,7 @@ public class RectZone : Zone
                location.x > Center.x - Size.x / 2 && location.x < Center.x + Size.x / 2 && location.z > Center.y - Size.y / 2 && location.z < Center.y + Size.y / 2;
     }
     /// <inheritdoc/>
-    public override string ToString() => $"{base.ToString()}. Size: {Size.x}x{Size.y}";
+    public override string ToString() => $"{base.ToString()} Size: {Size.x}x{Size.y}";
 
     /// <inheritdoc/>
     internal override ZoneBuilder Builder

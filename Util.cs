@@ -1,8 +1,10 @@
-﻿using SDG.NetTransport;
+﻿using Rocket.API;
+using SDG.NetTransport;
 using SDG.Unturned;
 using Steamworks;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -41,10 +43,21 @@ internal static class Util
     }
     internal static float GetHeight(Vector3 point, float minHeight)
     {
-        float height = LevelGround.getHeight(point);
-        if (!float.IsNaN(minHeight))
-            return Mathf.Max(height, minHeight);
-        else return height;
+        float height;
+        if (Physics.Raycast(new Ray(new Vector3(point.x, Level.HEIGHT, point.z), Vector3.down), out RaycastHit hit, Level.HEIGHT, RayMasks.BLOCK_COLLISION))
+        {
+            height = hit.point.y;
+            if (!float.IsNaN(minHeight))
+                return Mathf.Max(height, minHeight);
+            return height;
+        }
+        else
+        {
+            height = LevelGround.getHeight(point);
+            if (!float.IsNaN(minHeight))
+                return Mathf.Max(height, minHeight);
+            else return height;
+        }
     }
     public static bool RemoveFromArrayManaged<T>(ref T[] array, int index)
     {
@@ -99,5 +112,28 @@ internal static class Util
     public static void TriggerEffectReliable(EffectAsset asset, ITransportConnection connection, Vector3 position)
     {
         EffectManager.sendEffectReliable(asset.id, connection, position);
+    }
+    public static string? GetStringOrNull(this DbDataReader reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+            return null;
+        return reader.GetString(ordinal);
+    }
+}
+/// <summary>
+/// Struct wrapper for <see cref="IRocketPlayer"/>.
+/// </summary>
+internal readonly struct PlayerWrapper : IRocketPlayer
+{
+    public string Id => _id;
+    private readonly string _id;
+    public readonly Player player;
+    public string DisplayName => player.channel.owner.playerID.characterName;
+    public bool IsAdmin => player.channel.owner.isAdmin;
+    public int CompareTo(object obj) => obj is IRocketPlayer rp ? rp.Id.CompareTo(Id) : 0;
+    internal PlayerWrapper(Player player)
+    {
+        this.player = player;
+        this._id = player.channel.owner.playerID.steamID.m_SteamID.ToString(CommonZones.Locale);
     }
 }

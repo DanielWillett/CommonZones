@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CommonZones.Providers;
-public interface IZoneProvider
+public interface IZoneProvider : IDisposable
 {
     public List<Zone> Zones { get; }
     void Reload();

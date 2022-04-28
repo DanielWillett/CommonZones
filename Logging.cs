@@ -38,42 +38,38 @@ public static class L
     }
     private static void AddLine(string text, ConsoleColor color)
     {
-        try
+        if (OutputToConsoleMethod != null)
         {
-            if (OutputToConsoleMethod != null)
-            {
-                OutputToConsoleMethod.Invoke(text, color);
-            }
+            OutputToConsoleMethod.Invoke(text, color);
+            return;
         }
-        catch
+        switch (color)
         {
-            switch (color)
-            {
-                case ConsoleColor.Gray:
-                default:
-                    CommandWindow.Log(text);
-                    break;
-                case ConsoleColor.Yellow:
-                    CommandWindow.LogWarning(text);
-                    break;
-                case ConsoleColor.Red:
-                    CommandWindow.LogError(text);
-                    break;
-            }
+            case ConsoleColor.Gray:
+            default:
+                CommandWindow.Log(text);
+                break;
+            case ConsoleColor.Yellow:
+                CommandWindow.LogWarning(text);
+                break;
+            case ConsoleColor.Red:
+                CommandWindow.LogError(text);
+                break;
         }
     }
     public static void Log(string info, ConsoleColor color = ConsoleColor.Gray)
     {
         try
         {
+            string msg = "[CommonZones] " + info;
             if (OutputToConsoleMethod == null)
             {
                 Rocket.Core.Logging.Logger.Log(info);
             }
             else
             {
-                AddLine(info, color);
-                UnturnedLog.info($"[IN] {info}");
+                AddLine(msg, color);
+                UnturnedLog.info($"[IN] {msg}");
                 Rocket.Core.Logging.AsyncLoggerQueue.Current?.Enqueue(new Rocket.Core.Logging.LogEntry() { Message = info, RCON = true, Severity = Rocket.Core.Logging.ELogType.Info });
             }
         }
@@ -88,15 +84,16 @@ public static class L
     {
         try
         {
+            string msg = "[CommonZones] [" + method.ToUpper() + "] " + warning;
             if (OutputToConsoleMethod == null)
             {
-                Rocket.Core.Logging.Logger.LogWarning(warning);
+                Rocket.Core.Logging.Logger.LogWarning(msg);
             }
             else
             {
-                AddLine("[" + method.ToUpper() + "] " + warning, color);
-                UnturnedLog.warn($"[WA] {warning}");
-                Rocket.Core.Logging.AsyncLoggerQueue.Current?.Enqueue(new Rocket.Core.Logging.LogEntry() { Message = warning, RCON = true, Severity = Rocket.Core.Logging.ELogType.Warning });
+                AddLine(msg, color);
+                UnturnedLog.warn("[WA] " + msg);
+                Rocket.Core.Logging.AsyncLoggerQueue.Current?.Enqueue(new Rocket.Core.Logging.LogEntry() { Message = msg, RCON = true, Severity = Rocket.Core.Logging.ELogType.Warning });
             }
         }
         catch (Exception ex)
@@ -105,20 +102,20 @@ public static class L
             LogError(ex);
         }
     }
-    internal static void LogErrorEventCall(string error, ConsoleColor color) => LogError(error, color, "UncreatedNetworking");
     public static void LogError(string error, ConsoleColor color = ConsoleColor.Red, [CallerMemberName] string method = "")
     {
         try
         {
+            string msg = "[CommonZones] [" + method.ToUpper() + "] " + error;
             if (OutputToConsoleMethod == null)
             {
                 Rocket.Core.Logging.Logger.LogError(error);
             }
             else
             {
-                AddLine("[" + method.ToUpper() + "] " + error, color);
-                UnturnedLog.warn($"[ER] {error}");
-                Rocket.Core.Logging.AsyncLoggerQueue.Current?.Enqueue(new Rocket.Core.Logging.LogEntry() { Message = error, RCON = true, Severity = Rocket.Core.Logging.ELogType.Error });
+                AddLine(msg, color);
+                UnturnedLog.warn("[ER] " + msg);
+                Rocket.Core.Logging.AsyncLoggerQueue.Current?.Enqueue(new Rocket.Core.Logging.LogEntry() { Message = msg, RCON = true, Severity = Rocket.Core.Logging.ELogType.Error });
             }
         }
         catch (Exception ex)
@@ -130,7 +127,7 @@ public static class L
     internal static void LogErrorEventCall(Exception ex, ConsoleColor color) => LogError(ex, color, "UncreatedNetworking", "unknown", 0);
     public static void LogError(Exception ex, ConsoleColor color = ConsoleColor.Red, [CallerMemberName] string method = "", [CallerFilePath] string filepath = "", [CallerLineNumber] int ln = 0)
     {
-        string message = $"EXCEPTION - {ex.GetType().Name}\nSource: {filepath}::{method}( ... ) LN# {ln}\n\n{ex.Message}\n{ex.StackTrace}\n\nFINISHED";
+        string message = $"[CommonZones] EXCEPTION - {ex.GetType().Name}\nSource: {filepath}::{method}( ... ) LN# {ln}\n\n{ex.Message}\n{ex.StackTrace}\n\nFINISHED";
         try
         {
             if (OutputToConsoleMethod == null)

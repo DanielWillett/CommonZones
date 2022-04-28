@@ -1,10 +1,15 @@
-﻿using System;
+﻿using CommonZones.Tags;
+using Rocket.Core.Plugins;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Reflection;
 
-namespace CommonZones.Tags;
+namespace CommonZones.API.Tags;
 /// <summary>
 /// Tags are used to mark the behavior for players inside or outsize zones:<br/>
 /// Tags are defined like so:<br/><br/>
@@ -52,12 +57,19 @@ public static class Tags
     /// <remarks>Data: movement speed multiplier (float)</remarks>
     public static readonly string Speed = "speed";
 
-    public static readonly string[] AllTags = typeof(Tags)
-        .GetFields(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)
-        .Where(x => x.FieldType == typeof(string))
-        .Select(x => (string)x.GetValue(null))
-        .ToArray();
-
+    /// <summary>
+    /// Attempts to register all classes deriving from <see cref="TagHandler"/> to use as tags from the calling method's <see cref="Assembly"/>;
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    public static void RegisterPluginTags()
+    {
+        TagManager.RegisterTagsFromAssembly(new StackTrace().GetFrame(1).GetMethod().DeclaringType.Assembly);
+    }
+    /// <summary>Attempts to register all classes deriving from <see cref="TagHandler"/> to use as tags from <paramref name="plugin"/>'s <see cref="Assembly"/>.</summary>
+    public static void RegisterPluginTags(RocketPlugin plugin)
+    {
+        TagManager.RegisterTagsFromAssembly(plugin.Assembly);
+    }
 
     internal static unsafe TagData ParseTag(string tag)
     {
@@ -176,15 +188,23 @@ public static class Tags
         return rtn;
     }
 }
+/// <summary>Stores parsed data from tags. See <see cref="Tags"/> for more information.</summary>
 public struct TagData
 {
+    /// <summary>Name or unique ID of the tag.</summary>
     public string TagName;
+    /// <summary>Optional rocket permission group filter (after the @).</summary>
     public string? TagGroup;
+    /// <summary>Whether the tag should affect people outside the zone instead of inside.</summary>
     public bool TagInverted;
+    /// <summary>Whether the group filter should act as a blacklist instead of a whitelist.</summary>
     public bool GroupInverted;
+    /// <summary>Optional extra data provided to the tag (after the $).</summary>
     public string? DataString;
+    /// <summary>Original text of the tag.</summary>
     public string Original;
-    public override string ToString()
+    /// <summary>Get a string representation of the data in the tag.</summary>
+    public override readonly string ToString()
     {
         string str = $"Tag: {TagName}";
         if (TagInverted)
@@ -199,12 +219,63 @@ public struct TagData
             str += ", Data: " + DataString;
         return str;
     }
+    private static bool EqualsHelper(ref TagData a, ref TagData b)
+    {
+        if (a.TagInverted != b.TagInverted || a.GroupInverted != b.GroupInverted)
+            return false;
+        if (a.TagName == null)
+        {
+            if (b.TagName == null) return true;
+            else return false;
+        }
+        else if (b.TagName == null)
+        {
+            return false;
+        }
+        if (!a.TagName.Equals(b.TagName, StringComparison.Ordinal)) return false;
+        if (a.TagGroup == null)
+        {
+            if (b.TagGroup != null) return false;
+        }
+        else
+        {
+            if (b.TagGroup == null || !a.TagGroup.Equals(b.TagGroup, StringComparison.Ordinal))
+                return false;
+        }
+        if (a.DataString == null)
+        {
+            if (b.DataString != null) return false;
+            else return true;
+        }
+        else
+        {
+            if (b.DataString == null || !a.DataString.Equals(b.DataString, StringComparison.Ordinal))
+                return false;
+            else return true;
+        }
+    }
     public override bool Equals(object obj) =>
-        obj is TagData data &&
-        data.Original.Equals(Original, StringComparison.Ordinal);
-    public override int GetHashCode() => Original.GetHashCode();
-    public static bool operator ==(TagData a, TagData b) =>
-        a.Original.Equals(b.Original, StringComparison.Ordinal);
-    public static bool operator !=(TagData a, TagData b) =>
-        !a.Original.Equals(b.Original, StringComparison.Ordinal);
+        obj is TagData data && EqualsHelper(ref this, ref data);
+    /// <summary>Compare two <see cref="TagData"/>.</summary>
+    /// <param name="data">Other <see cref="TagData"/> to compare <see langword="this"/> to.</param>
+    /// <returns><see langword="true"/> if <see langword="this"/> and <paramref name="data"/> are the same.</returns>
+    public bool Equals(TagData data) =>
+         EqualsHelper(ref this, ref data);
+    /// <summary>Compare two <see cref="TagData"/> by reference.</summary>
+    /// <param name="data">Other <see cref="TagData"/> to compare <see langword="this"/> to.</param>
+    /// <returns><see langword="true"/> if <see langword="this"/> and <paramref name="data"/> are the same.</returns>
+    public bool Equals(ref TagData data) =>
+         EqualsHelper(ref this, ref data);
+    /// <inheritdoc/>
+    public readonly override int GetHashCode() => Original.GetHashCode();
+    /// <summary>Compare two <see cref="TagData"/>.</summary>
+    /// <param name="a">Left</param>
+    /// <param name="b">Right</param>
+    /// <returns><see langword="true"/> if <paramref name="a"/> and <paramref name="b"/> are the same.</returns>
+    public static bool operator ==(TagData a, TagData b) => EqualsHelper(ref a, ref b);
+    /// <summary>Compare two <see cref="TagData"/>.</summary>
+    /// <param name="a">Left</param>
+    /// <param name="b">Right</param>
+    /// <returns><see langword="false"/> if <paramref name="a"/> and <paramref name="b"/> are the same.</returns>
+    public static bool operator !=(TagData a, TagData b) => !EqualsHelper(ref a, ref b);
 }

@@ -1,17 +1,16 @@
 ﻿using CommonZones.API;
-using CommonZones.Models;
 using CommonZones.Providers;
 using CommonZones.Zones;
+using Rocket.Core;
 using Rocket.Core.Plugins;
 using SDG.Unturned;
 using Steamworks;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Reflection;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Unicode;
 using UnityEngine;
 
 namespace CommonZones;
@@ -25,6 +24,23 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
     internal static string DataDirectory     = null!;
     private static AssemblyName AssemblyName = null!;
     private bool HasLoaded                   = false;
+
+    // Library support checks.
+    internal bool HasNewtonsoft     = false;
+    internal bool HasSysTextJson    = false;
+    internal bool HasMySqlData      = false;
+    internal bool HasMySqlConnector = false;
+    internal bool HasSysXml         = false;
+    internal Type? ZoneProviderType = null;
+
+    /// <summary>Called after <see cref="Load"/> has been called. This is where <see cref="API.Tags.Tags.RegisterPluginTags"/> should be called.</summary>
+    /// <remarks>If you're looking for where to register plugin zones, look at <see cref="API.Zones.OnRegisterPluginZones"/>.</remarks>
+    public static event System.Action? OnLoaded;
+    /// <summary>Called after all zones have been read (after level load).</summary>
+    public static event System.Action? OnZonesLoaded;
+    /// <summary>Called just before the plugin is unloaded.</summary>
+    public static event System.Action? OnUnloading;
+
     protected override void Load()
     {
         I = this;
@@ -32,17 +48,190 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
         Translation.InitTranslations();
         L.LoadColoredConsole();
         L.Log("Loading " + AssemblyName.Name + " by BlazingFlame#0001: " + AssemblyName.Version, ConsoleColor.Magenta);
-        DataDirectory = Environment.CurrentDirectory + @"\Plugins\" + AssemblyName.Name + @"\";
+        DataDirectory = System.Environment.CurrentDirectory + @"\Plugins\" + AssemblyName.Name + @"\";
+        LibCheck();
+        if (ZoneProviderType == null) return;
         SubscribeEvents();
+        Tags.TagManager.RegisterTagsFromAssembly(Assembly);
         if (HasLoaded)
+        {
             OnLevelLoaded(2); // rocket reload
+        }
         IsLoaded = true;
         HasLoaded = true;
+        OnLoaded?.Invoke();
+    }
+
+    private void LibCheck()
+    {
+        bool sTxtJson1 = false, newtonsoft1 = false, sqld1 = false, sqlc1 = false, xml1 = false;
+
+        // private Dictionary<AssemblyName, string> RocketPluginManager.libraries from R.Plugins
+        Dictionary<AssemblyName, string>? libs = (Dictionary<AssemblyName, string>?)typeof(RocketPluginManager)?.GetField("libraries", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(R.Plugins);
+        bool v = libs != null;
+        if (v)
+        {
+            // Rocket doesn't load libraries until a type from them are needed,
+            // so we need to check all the discovered libraries that have yet to be loaded.
+            // If they aren't there then we dont check for the type.
+            foreach (KeyValuePair<AssemblyName, string> kvp in libs!)
+            {
+                string n = kvp.Key.FullName;
+                if (n.IndexOf("System.Text.Json", StringComparison.OrdinalIgnoreCase) != -1)
+                    sTxtJson1 = true;
+                else if (n.IndexOf("Newtonsoft.Json", StringComparison.OrdinalIgnoreCase) != -1)
+                    newtonsoft1 = true;
+                else if (n.IndexOf("MySql.Data", StringComparison.OrdinalIgnoreCase) != -1)
+                    sqld1 = true;
+                else if (n.IndexOf("MySqlConnector", StringComparison.OrdinalIgnoreCase) != -1)
+                    sqlc1 = true;
+                else if (n.IndexOf("System.Xml", StringComparison.OrdinalIgnoreCase) != -1)
+                    xml1 = true;
+            }
+            // Also check if the library was already loaded by unturend or rocket's dependencies.
+            if (!sTxtJson1 || !newtonsoft1 || !sqld1 || !sqlc1 || !xml1)
+            {
+                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                for (int i = 0; i < assemblies.Length; ++i)
+                {
+                    string n = assemblies[i].FullName;
+                    if (n.IndexOf("System.Text.Json", StringComparison.OrdinalIgnoreCase) != -1)
+                        sTxtJson1 = true;
+                    else if (n.IndexOf("Newtonsoft.Json", StringComparison.OrdinalIgnoreCase) != -1)
+                        newtonsoft1 = true;
+                    else if (n.IndexOf("MySql.Data", StringComparison.OrdinalIgnoreCase) != -1)
+                        sqld1 = true;
+                    else if (n.IndexOf("MySqlConnector", StringComparison.OrdinalIgnoreCase) != -1)
+                        sqlc1 = true;
+                    else if (n.IndexOf("System.Xml", StringComparison.OrdinalIgnoreCase) != -1)
+                        xml1 = true;
+                }
+            }
+        }
+        // If the libraries exist, try to get some random types to make sure the library is properly loaded and what we're expecting.
+        Type? sysTextJson   =  !v || sTxtJson1   ? Type.GetType("System.Text.Json.Utf8JsonReader, System.Text.Json", false, false) : null;
+        Type? newtonsoft    =  !v || newtonsoft1 ? Type.GetType("Newtonsoft.Json.JsonReader, Newtonsoft.Json", false, false) : null;
+        Type? mySqlConn     = (!v || sqld1       ? Type.GetType("MySql.Data.MySqlClient.MySqlConnection, MySql.Data", false, false) : null)
+                           ?? (!v || sqlc1       ? Type.GetType("MySqlConnector.MySqlClient.MySqlConnection, MySqlConnector", false, false) : null);
+        Type? xml           =  !v || xml1        ? Type.GetType("System.Xml.XmlReader, System.Xml", false, false) : null;
+        if (!v && (sysTextJson == null || newtonsoft == null || mySqlConn == null || xml == null))
+            L.Log("You can ignore any dependency errors above.", ConsoleColor.DarkGray);
+
+        HasSysTextJson      = sysTextJson != null && sysTextJson.Assembly.GetName().FullName.IndexOf("System.Text.Json", StringComparison.OrdinalIgnoreCase) != -1;
+        HasNewtonsoft       = newtonsoft  != null && newtonsoft .Assembly.GetName().FullName.IndexOf("Newtonsoft.Json",  StringComparison.OrdinalIgnoreCase) != -1;
+        HasSysXml           = xml         != null && xml        .Assembly.GetName().FullName.IndexOf("System.Xml",       StringComparison.OrdinalIgnoreCase) != -1;
+        if (mySqlConn == null)
+        {
+            HasMySqlData        = false;
+            HasMySqlConnector   = false;
+        }
+        else
+        {
+            HasMySqlData            = mySqlConn.Assembly.GetName().FullName.IndexOf("MySql.Data",     StringComparison.OrdinalIgnoreCase) != -1;
+            if (!HasMySqlData)
+                HasMySqlConnector   = mySqlConn.Assembly.GetName().FullName.IndexOf("MySqlConnector", StringComparison.OrdinalIgnoreCase) != -1;
+        }
+        if (HasSysTextJson)
+            L.Log("Found System.Text.Json " + sysTextJson!.Assembly.GetName().Version, ConsoleColor.Magenta);
+        if (HasNewtonsoft)
+            L.Log("Found Newtonsoft.Json " + newtonsoft!.Assembly.GetName().Version, ConsoleColor.Magenta);
+        if (HasMySqlData)
+            L.Log("Found MySql.Data " + mySqlConn!.Assembly.GetName().Version, ConsoleColor.Magenta);
+        else if (HasMySqlConnector)
+            L.Log("Found MySqlConnector " + mySqlConn!.Assembly.GetName().Version, ConsoleColor.Magenta);
+        if (HasSysXml)
+            L.Log("Found System.Xml " + xml!.Assembly.GetName().Version, ConsoleColor.Magenta);
+
+        if (!Enum.TryParse(Configuration.Instance.StorageType, true, out EZoneStorageType zoneStorage))
+        {
+            goto badzone;
+        }
+
+        switch (zoneStorage)
+        {
+            case EZoneStorageType.JSON:
+                if (!HasSysTextJson)
+                {
+                    if (!HasNewtonsoft)
+                    {
+                        ZoneProviderType = null;
+                        L.LogError("To read zone data with JSON one of the following libraries must be available in Rocket\\Libraries: `Newtonsoft.Json` or `System.Text.Json`.");
+                        UnloadPlugin();
+                    }
+                    else
+                    {
+                        ZoneProviderType = typeof(NewtonsoftJsonZoneProvider);
+                    }
+                }
+                else
+                {
+                    ZoneProviderType = typeof(SysTextJsonZoneProvider);
+                }
+                break;
+            case EZoneStorageType.MYSQL:
+                if (!HasMySqlData)
+                {
+                    if (!HasMySqlConnector)
+                    {
+                        ZoneProviderType = null;
+                        L.LogError("To read zone data from MySQL one of the following libraries must be available in Rocket\\Libraries: `MySql.Data` or `MySqlConnector`.");
+                        UnloadPlugin();
+                    }
+                    else
+                    {
+                        ZoneProviderType = typeof(MySqlConnZoneProvider);
+                    }
+                }
+                else
+                {
+                    ZoneProviderType = typeof(MySqlDataZoneProvider);
+                }
+                break;
+            case EZoneStorageType.XML:
+                if (!HasSysXml)
+                {
+                    ZoneProviderType = null;
+                    L.LogError("To read zone data from XML one of the library `System.Xml` must be available in Rocket\\Libraries.");
+                    UnloadPlugin();
+                }
+                else
+                {
+                    ZoneProviderType = typeof(XmlZoneProvider);
+                }
+                break;
+            default: goto badzone;
+        }
+        if (ZoneProviderType != null)
+        {
+            if (ZoneProviderType.GetInterface(nameof(IZoneProvider)) == null)
+            {
+                L.LogError("Type " + ZoneProviderType.Name + " does not implement " + nameof(IZoneProvider) + "!");
+                ZoneProviderType = null;
+                UnloadPlugin(Rocket.API.PluginState.Failure);
+            }
+            else if (ZoneProviderType.GetConstructor(new Type[] { typeof(FileInfo) }) == null)
+            {
+                L.LogError("Type " + ZoneProviderType.Name + " does not have a matching constructor: " + ZoneProviderType.Name + "(FileInfo)");
+                ZoneProviderType = null;
+                UnloadPlugin(Rocket.API.PluginState.Failure);
+            }
+        }
+        return;
+        badzone:
+        ZoneProviderType = null;
+        L.LogError("Invalid zone storage type in config, unloading plugin. Options: JSON, MYSQL, XML");
+        UnloadPlugin(Rocket.API.PluginState.Failure);
     }
     protected override void Unload()
     {
+        if (!IsLoaded) return;
+        OnUnloading?.Invoke();
         IsLoaded = false;
-        ZoneProvider = null!;
+        if (ZoneProvider != null)
+        {
+            ZoneProvider.Dispose();
+            ZoneProvider = null!;
+        }
         L.Log("Unloading CommonZones by BlazingFlame#0001.");
         UnsubscribeEvents();
     }
@@ -62,10 +251,18 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
     }
     private void OnLevelLoaded(int level)
     {
+        if (ZoneProviderType == null)
+        {
+            L.LogError("Failed to load because a provider type was not selected.");
+            return;
+        }
         Zone.OnLevelLoaded();
-        ZoneProvider = new JsonZoneProvider(new FileInfo(DataDirectory + "zones.json"));
+        ZoneProvider = (IZoneProvider)Activator.CreateInstance(ZoneProviderType, new FileInfo(DataDirectory + "zones.json"));
+        if (State == Rocket.API.PluginState.Failure) return;
         ZoneProvider.Reload();
+        if (State == Rocket.API.PluginState.Failure) return;
         ZonePlayerComponent.UIInit();
+        OnZonesLoaded?.Invoke();
     }
 
     private void OnPlayerConnected(CSteamID playerid)
@@ -129,26 +326,5 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
             }
         };
         zones.Add(zone);
-    }
-
-
-
-
-    private static readonly JavaScriptEncoder jsEncoder;
-    public static readonly JsonSerializerOptions JsonSerializerSettings;
-    public static readonly JsonWriterOptions JsonWriterOptions;
-    public static readonly JsonReaderOptions JsonReaderOptions;
-    static CommonZones()
-    {
-        jsEncoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
-        JsonSerializerSettings = new JsonSerializerOptions()
-        {
-            WriteIndented = true,
-            IncludeFields = true,
-            AllowTrailingCommas = true,
-            Encoder = jsEncoder
-        };
-        JsonWriterOptions = new JsonWriterOptions() { Indented = true, Encoder = jsEncoder };
-        JsonReaderOptions = new JsonReaderOptions() { AllowTrailingCommas = true };
     }
 }
