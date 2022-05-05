@@ -16,6 +16,7 @@ namespace CommonZones.Zones;
 /// </summary>
 public abstract class Zone
 {
+    internal int OptPrimaryKey = -1;
     private static bool isReady = false;
     /// <summary>
     /// For converting between image sources and coordinate sources.
@@ -250,6 +251,7 @@ public abstract class Zone
         this.Name = data.Name;
         this.MinHeight = data.MinimumHeight;
         this.MaxHeight = data.MaximumHeight;
+        this.OptPrimaryKey = data.OptPrimaryKey;
         if (data.Tags == null)
         {
             this._tags = new TagData[0];

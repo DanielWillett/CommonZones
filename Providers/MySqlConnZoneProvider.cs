@@ -19,6 +19,7 @@ internal class MySqlConnZoneProvider : IZoneProvider
     }
 
     public void Reload() => throw new NotImplementedException();
-    public void Save() => throw new NotImplementedException();
+    public void SaveZone(Zone zone) => SaveZone(_zones.IndexOf(zone));
+    public void SaveZone(int index) => throw new NotImplementedException();
     public void Dispose() => throw new NotImplementedException();
 }

@@ -61,7 +61,6 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
         HasLoaded = true;
         OnLoaded?.Invoke();
     }
-
     private void LibCheck()
     {
         bool sTxtJson1 = false, newtonsoft1 = false, sqld1 = false, sqlc1 = false, xml1 = false;
@@ -88,7 +87,7 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
                 else if (n.IndexOf("System.Xml", StringComparison.OrdinalIgnoreCase) != -1)
                     xml1 = true;
             }
-            // Also check if the library was already loaded by unturend or rocket's dependencies.
+            // Also check if the library was already loaded by unturned or rocket's dependencies.
             if (!sTxtJson1 || !newtonsoft1 || !sqld1 || !sqlc1 || !xml1)
             {
                 Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -156,7 +155,7 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
                     {
                         ZoneProviderType = null;
                         L.LogError("To read zone data with JSON one of the following libraries must be available in Rocket\\Libraries: `Newtonsoft.Json` or `System.Text.Json`.");
-                        UnloadPlugin();
+                        throw new ZoneAPIException();
                     }
                     else
                     {
@@ -175,7 +174,7 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
                     {
                         ZoneProviderType = null;
                         L.LogError("To read zone data from MySQL one of the following libraries must be available in Rocket\\Libraries: `MySql.Data` or `MySqlConnector`.");
-                        UnloadPlugin();
+                        throw new ZoneAPIException();
                     }
                     else
                     {
@@ -191,8 +190,8 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
                 if (!HasSysXml)
                 {
                     ZoneProviderType = null;
-                    L.LogError("To read zone data from XML one of the library `System.Xml` must be available in Rocket\\Libraries.");
-                    UnloadPlugin();
+                    L.LogError("To read zone data from XML the library `System.Xml` must be available in Rocket\\Libraries.");
+                    throw new ZoneAPIException();
                 }
                 else
                 {
@@ -207,20 +206,20 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
             {
                 L.LogError("Type " + ZoneProviderType.Name + " does not implement " + nameof(IZoneProvider) + "!");
                 ZoneProviderType = null;
-                UnloadPlugin(Rocket.API.PluginState.Failure);
+                throw new ZoneAPIException();
             }
             else if (ZoneProviderType.GetConstructor(new Type[] { typeof(FileInfo) }) == null)
             {
                 L.LogError("Type " + ZoneProviderType.Name + " does not have a matching constructor: " + ZoneProviderType.Name + "(FileInfo)");
                 ZoneProviderType = null;
-                UnloadPlugin(Rocket.API.PluginState.Failure);
+                throw new ZoneAPIException();
             }
         }
         return;
         badzone:
         ZoneProviderType = null;
         L.LogError("Invalid zone storage type in config, unloading plugin. Options: JSON, MYSQL, XML");
-        UnloadPlugin(Rocket.API.PluginState.Failure);
+        throw new ZoneAPIException();
     }
     protected override void Unload()
     {
@@ -257,10 +256,16 @@ public partial class CommonZones : RocketPlugin<CommonZonesConfig>
             return;
         }
         Zone.OnLevelLoaded();
-        ZoneProvider = (IZoneProvider)Activator.CreateInstance(ZoneProviderType, new FileInfo(DataDirectory + "zones.json"));
-        if (State == Rocket.API.PluginState.Failure) return;
-        ZoneProvider.Reload();
-        if (State == Rocket.API.PluginState.Failure) return;
+        try
+        {
+            ZoneProvider = (IZoneProvider)Activator.CreateInstance(ZoneProviderType, new FileInfo(DataDirectory + "zones.json"));
+            ZoneProvider.Reload();
+        }
+        catch (ZoneAPIException)
+        {
+            UnloadPlugin(Rocket.API.PluginState.Failure);
+            return;
+        }
         ZonePlayerComponent.UIInit();
         OnZonesLoaded?.Invoke();
     }

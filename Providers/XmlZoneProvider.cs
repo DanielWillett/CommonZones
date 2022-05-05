@@ -31,6 +31,9 @@ internal class XmlZoneProvider : IZoneProvider
             }
         }
     }
+
+    public void SaveZone(Zone zone) => Save();
+    public void SaveZone(int index) => Save();
     public void Reload()
     {
         _zones.Clear();

@@ -121,7 +121,7 @@ internal static class Util
     }
 }
 /// <summary>
-/// Struct wrapper for <see cref="IRocketPlayer"/>.
+/// Struct wrapper for <see cref="IRocketPlayer"/> to use permisison group functions effeciently.
 /// </summary>
 internal readonly struct PlayerWrapper : IRocketPlayer
 {

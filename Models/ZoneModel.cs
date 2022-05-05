@@ -13,6 +13,7 @@ using UnityEngine;
 namespace CommonZones.Models;
 internal struct ZoneModel
 {
+    internal int OptPrimaryKey = -1;
     internal string Name = null!;
     internal string? ShortName;
     internal float X;
@@ -23,6 +24,8 @@ internal struct ZoneModel
     internal string[] Tags = Array.Empty<string>();
     internal EZoneType ZoneType = EZoneType.INVALID;
     internal Data ZoneData = new Data();
+    internal List<Vector2>? TempPointList = null;
+    internal List<string>? TempTagList = null;
     /// <summary>Plugin zones are temporary and are not saved.</summary>
     internal bool IsTemp = false;
     internal struct Data
@@ -61,6 +64,7 @@ internal struct ZoneModel
         X = float.NaN;
         Z = float.NaN;
         UseMapCoordinates = false;
+        OptPrimaryKey = -1;
     }
 
     internal Zone GetZone()

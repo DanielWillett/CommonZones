@@ -9,6 +9,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace CommonZones.Providers;
 // decided to go synchronous for this since it will simplify implementation with the other providers and since it's not going to be called often.
@@ -27,8 +28,89 @@ internal class MySqlDataZoneProvider : IZoneProvider
         if (!Open())
         {
             L.LogError("Failed to connect to a MySql server for the reason above. Unloading until this is resolved.");
-            CommonZones.I.UnloadPlugin(Rocket.API.PluginState.Failure);
+            throw new ZoneAPIException();
         }
+    }
+
+    public void SaveZone(Zone zone)
+    {
+        int i = _zones.IndexOf(zone ?? throw new ArgumentNullException(nameof(zone)));
+        if (i == -1)
+        {
+            for (int j = 0; j < _zones.Count; ++j)
+            {
+                if (_zones[j].Name.Equals(zone.Name, StringComparison.Ordinal))
+                {
+                    i = j;
+                    break;
+                }
+            }
+        }
+
+        if (i == -1)
+            throw new ZoneAPIException("Zone not found in list.");
+        SaveZone(i);
+    }
+    public void SaveZone(int index)
+    {
+        if (!hasVerified)
+        {
+            if (!VerifyTableIntegrety()) return;
+            hasVerified = true;
+        }
+        
+        if (index < 0 || index >= _zones.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index), );
+        }
+
+        Zone zone = _zones[index];
+
+        bool hasPk = zone.OptPrimaryKey > -1;
+
+        int pk = -1;
+
+        string query;
+        if (!hasPk)
+        {
+            Query("SELECT `pk` FROM `cz_zone_data` WHERE `Name` = @0 LIMIT 1;", new object[1] { zone.Name }, R => pk = R.GetInt32(0));
+        }
+        if (pk == -1)
+        {
+            query =
+                "INSERT INTO `cz_zone_data` (`Name`, `ShortName`, `X`, `Z`, `MinHeight`, `MaxHeight`, `Type`, `UsesMapCoords`) " +
+                "VALUES (@0, @1, @2, @3, @4, @5, @6, @7) ON DUPLICATE KEY UPDATE " +
+                "`Name` = @0, `ShortName` = @1, `X` = @2, `Z` = @3, `MinHeight` = @4, `MaxHeight` = @5, `Type` = @6, `UsesMapCoords` = @7, `pk` = LAST_INSERT_ID(`pk`); " +
+                "SET @zonePk := (SELECT LAST_INSERT_ID() AS `pk`); " +
+                "DELETE FROM `cz_zone_circles` WHERE `ZonePk` = @zonePk; " +
+                "DELETE FROM `cz_zone_rectangles` WHERE `ZonePk` = @zonePk; " +
+                "DELETE FROM `cz_zone_polygon_points` WHERE `ZonePk` = @zonePk; " +
+                "DELETE FROM `cz_zone_tags` WHERE `ZonePk` = @zonePk; " +
+                "SELECT @zonePk;";
+        }
+        else
+        {
+            query =
+                "INSERT INTO `cz_zone_data` (`pk`, `Name`, `ShortName`, `X`, `Z`, `MinHeight`, `MaxHeight`, `Type`, `UsesMapCoords`) " +
+                "VALUES (@0, @1, @2, @3, @4, @5, @6, @7, @8) ON DUPLICATE KEY UPDATE " +
+                "`Name` = @1, `ShortName` = @2, `X` = @3, `Z` = @4, `MinHeight` = @5, `MaxHeight` = @6, `Type` = @7, `UsesMapCoords` = @8, `pk` = LAST_INSERT_ID(`pk`); " +
+                "SET @zonePk := (SELECT LAST_INSERT_ID() AS `pk`); " +
+                "DELETE FROM `cz_zone_circles` WHERE `ZonePk` = @zonePk; " +
+                "DELETE FROM `cz_zone_rectangles` WHERE `ZonePk` = @zonePk; " +
+                "DELETE FROM `cz_zone_polygon_points` WHERE `ZonePk` = @zonePk; " +
+                "DELETE FROM `cz_zone_tags` WHERE `ZonePk` = @zonePk; " +
+                "SELECT @zonePk;";
+        }
+
+        Query(query, pk == -1
+            ? new object[8]
+            {
+
+            }
+            : new object[9]
+            {
+
+            });
     }
     private void AddPluginZones()
     {
@@ -46,7 +128,7 @@ internal class MySqlDataZoneProvider : IZoneProvider
 
     public bool VerifyTableIntegrety()
     {
-        bool shouldUnload = false;
+        bool bad = false;
         try
         {
             List<string> tables = new List<string>(5);
@@ -684,7 +766,7 @@ internal class MySqlDataZoneProvider : IZoneProvider
                 {
                     L.LogError(ex);
                     L.LogError("Failed to " + (exists ? "verify table integrity of `" : "create `") + tblName + "`. Check above.");
-                    shouldUnload = true;
+                    bad = true;
                 }
             }
         }
@@ -692,11 +774,13 @@ internal class MySqlDataZoneProvider : IZoneProvider
         {
             L.LogError(ex);
             L.LogError("Failed to verify table integrety, check above. Unloading until this is resolved.");
-            shouldUnload = true;
+            bad = true;
         }
-        if (shouldUnload)
-            CommonZones.I.UnloadPlugin(Rocket.API.PluginState.Failure);
-        return !shouldUnload;
+        if (bad)
+        {
+            throw new ZoneAPIException();
+        }
+        return !bad;
     }
 
     bool hasVerified = false;
@@ -707,13 +791,113 @@ internal class MySqlDataZoneProvider : IZoneProvider
             if (!VerifyTableIntegrety()) return;
             hasVerified = true;
         }
-    }
-    public void Save()
-    {
-        if (!hasVerified)
+
+        List<ZoneModel> mdls = new List<ZoneModel>(_zones.Count);
+        _zones.Clear();
+        Query("SELECT `pk`, `Name`, `ShortName`, `X`, `Z`, `MinHeight`, `MaxHeight`, `Type`, `UsesMapCoords` FROM `cz_zone_data`;", null, R =>
         {
-            if (!VerifyTableIntegrety()) return;
-            hasVerified = true;
+            ZoneModel mdl = new ZoneModel
+            {
+                OptPrimaryKey = R.GetInt32(0),
+                Name = R.GetString(1),
+                ShortName = R.GetStringOrNull(2),
+                X = R.GetFloat(3),
+                Z = R.GetFloat(4),
+                MinimumHeight = R.IsDBNull(5) ? float.NaN : R.GetFloat(5),
+                MaximumHeight = R.IsDBNull(6) ? float.NaN : R.GetFloat(6),
+                UseMapCoordinates = R.GetBoolean(8)
+            };
+            EZoneType t = (EZoneType)R.GetByte(7);
+            if (t != EZoneType.CIRCLE && t != EZoneType.RECTANGLE && t != EZoneType.POLYGON)
+            {
+                throw new ZoneReadException("Zone type " + t.ToString() + " is not a valid zone type. Should be: " + 
+                                            EZoneType.CIRCLE.ToString() + " (" + ((byte)EZoneType.CIRCLE).ToString() + " | " +
+                                            EZoneType.RECTANGLE.ToString() + " (" + ((byte)EZoneType.RECTANGLE).ToString() + " | " +
+                                            EZoneType.POLYGON.ToString() + " (" + ((byte)EZoneType.POLYGON).ToString() + " | ");
+            }
+            mdls.Add(mdl);
+        });
+        Query("SELECT `ZonePk`, `Radius` FROM `cz_zone_circles`;", null, R =>
+        {
+            int pk = R.GetInt32(0);
+            for (int i = 0; i < mdls.Count; ++i)
+            {
+                if (mdls[i].OptPrimaryKey == pk)
+                {
+                    ZoneModel mdl = mdls[i];
+                    mdl.ZoneData.Radius = R.GetFloat(1);
+                    mdls[i] = mdl;
+                    break;
+                }
+            }
+        });
+        Query("SELECT `ZonePk`, `SizeX`, `SizeZ` FROM `cz_zone_rectangles`;", null, R =>
+        {
+            int pk = R.GetInt32(0);
+            for (int i = 0; i < mdls.Count; ++i)
+            {
+                if (mdls[i].OptPrimaryKey == pk)
+                {
+                    ZoneModel mdl = mdls[i];
+                    mdl.ZoneData.SizeX = R.GetFloat(1);
+                    mdl.ZoneData.SizeZ = R.GetFloat(2);
+                    mdls[i] = mdl;
+                    break;
+                }
+            }
+        });
+        Query("SELECT `ZonePk`, `X`, `Z` FROM `cz_zone_polygon_points`;", null, R =>
+        {
+            int pk = R.GetInt32(0);
+            for (int i = 0; i < mdls.Count; ++i)
+            {
+                if (mdls[i].OptPrimaryKey == pk)
+                {
+                    ZoneModel mdl = mdls[i];
+                    bool f = mdl.TempPointList == null;
+                    if (f) mdl.TempPointList = new List<Vector2>(8);
+
+                    mdl.TempPointList!.Add(new Vector2(R.GetFloat(1), R.GetFloat(2)));
+                    if (f) mdls[i] = mdl;
+                    break;
+                }
+            }
+        });
+        Query("SELECT `ZonePk`, `Tag` FROM `cz_zone_tags`;", null, R =>
+        {
+            int pk = R.GetInt32(0);
+            for (int i = 0; i < mdls.Count; ++i)
+            {
+                if (mdls[i].OptPrimaryKey == pk)
+                {
+                    ZoneModel mdl = mdls[i];
+                    bool f = mdl.TempTagList == null;
+                    if (f) mdl.TempTagList = new List<string>(8);
+
+                    mdl.TempTagList!.Add(R.GetString(1));
+                    if (f) mdls[i] = mdl;
+                    break;
+                }
+            }
+        });
+
+        for (int i = mdls.Count - 1; i >= 0; --i)
+        {
+            ZoneModel mdl = mdls[i];
+            if (mdl.TempTagList != null)
+                mdl.Tags = mdl.TempTagList.ToArray();
+            if (mdl.TempPointList != null)
+                mdl.ZoneData.Points = mdl.TempPointList.ToArray();
+            try
+            {
+                mdl.ValidateRead();
+                _zones.Add(mdl.GetZone());
+            }
+            catch (ZoneReadException ex)
+            {
+                L.LogWarning("Zone read failure for zone id " + ex.Data.OptPrimaryKey + " (" + (ex.Data.Name ?? "null") + ": " + ex.Message);
+                mdls.RemoveAt(i);
+            }
         }
     }
 

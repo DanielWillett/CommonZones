@@ -11,5 +11,6 @@ public interface IZoneProvider : IDisposable
 {
     public List<Zone> Zones { get; }
     void Reload();
-    void Save();
+    void SaveZone(Zone zone);
+    void SaveZone(int index);
 }

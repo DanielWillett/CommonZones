@@ -421,11 +421,11 @@ internal class ZonePlayerComponent : MonoBehaviour
             if (_edit != null)
             {
                 EffectManager.sendUIEffect(_edit.id, EDIT_KEY, tc, true);
-                EffectManager.sendUIEffectText(EDIT_KEY, tc, true, "Name", name);
+                EffectManager.sendUIEffectText(EDIT_KEY, tc, true, "Name", _currentBuilder.Name);
                 EffectManager.sendUIEffectText(EDIT_KEY, tc, true, "Type", text);
                 EffectManager.sendUIEffectText(EDIT_KEY, tc, true, "Header", Translation.Translate("edit_zone_ui_suggested_commands"));
             }
-            player.SendChat("edit_zone_existing_success", name, text);
+            player.SendChat("edit_zone_existing_success", _currentBuilder.Name!, text);
             CheckType(_currentBuilder.ZoneType, true);
             RefreshPreview();
         }
@@ -551,17 +551,21 @@ internal class ZonePlayerComponent : MonoBehaviour
                     ZoneModel mdl = _currentBuilder.Build();
                     mdl.IsTemp = false;
                     Zone zone = mdl.GetZone();
+                    bool @new;
                     if (replIndex == -1)
                     {
+                        replIndex = CommonZones.ZoneProvider.Zones.Count;
                         CommonZones.ZoneProvider.Zones.Add(zone);
+                        @new = true;
                     }
                     else
                     {
                         CommonZones.ZoneProvider.Zones[replIndex] = zone;
+                        @new = false;
                     }
-                    CommonZones.ZoneProvider.Save();
+                    CommonZones.ZoneProvider.SaveZone(replIndex);
                     _builders.Remove(this);
-                    player.SendChat(replIndex == -1 ? "edit_zone_finalize_success" : "edit_zone_finalize_success_overwrite", _currentBuilder.Name!);
+                    player.SendChat(@new ? "edit_zone_finalize_success" : "edit_zone_finalize_success_overwrite", _currentBuilder.Name!);
                     _currentPoints = null;
                     _currentBuilder = null;
                     if (_edit != null)
