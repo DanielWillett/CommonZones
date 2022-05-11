@@ -61,7 +61,7 @@ internal class MySqlDataZoneProvider : IZoneProvider
         
         if (index < 0 || index >= _zones.Count)
         {
-            throw new ArgumentOutOfRangeException(nameof(index), );
+            throw new ArgumentOutOfRangeException(nameof(index), "Zone index is out of range");
         }
 
         Zone zone = _zones[index];
@@ -101,7 +101,7 @@ internal class MySqlDataZoneProvider : IZoneProvider
                 "DELETE FROM `cz_zone_tags` WHERE `ZonePk` = @zonePk; " +
                 "SELECT @zonePk;";
         }
-
+        /* TODO
         Query(query, pk == -1
             ? new object[8]
             {
@@ -110,7 +110,7 @@ internal class MySqlDataZoneProvider : IZoneProvider
             : new object[9]
             {
 
-            });
+            });*/
     }
     private void AddPluginZones()
     {
