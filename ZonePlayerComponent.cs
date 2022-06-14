@@ -57,6 +57,15 @@ internal class ZonePlayerComponent : MonoBehaviour
         this.player = player;
         Update();
     }
+    internal bool IsInZone(string zoneName)
+    {
+        for (int j = 0; j < _zones.Count; ++j)
+            if (_zones[j].Equals(zoneName, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
+    }
+    internal string[] GetZones() => _zones.ToArray();
+
     private Coroutine? clearUICoroutine;
 #pragma warning disable IDE0051
     private void Update()

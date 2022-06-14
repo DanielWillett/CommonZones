@@ -147,7 +147,7 @@ internal class XmlZoneProvider : IZoneProvider
             L.LogError(ex);
         }
     }
-    public void ReadXml(ref ZoneModel mdl, XmlReader reader)
+    public static void ReadXml(ref ZoneModel mdl, XmlReader reader)
     {
         while (reader.Read())
         {
@@ -247,7 +247,7 @@ internal class XmlZoneProvider : IZoneProvider
         }
         mdl.ValidateRead();
     }
-    public void WriteXml(ref ZoneModel mdl, XmlWriter writer)
+    public static void WriteXml(ref ZoneModel mdl, XmlWriter writer)
     {
         writer.WriteStartElement("zone");
         if (!mdl.IsValid || mdl.ZoneType == EZoneType.INVALID)

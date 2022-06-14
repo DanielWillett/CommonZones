@@ -1,4 +1,5 @@
 ﻿using CommonZones.Zones;
+using Rocket.Unturned.Player;
 using SDG.Unturned;
 using System;
 using System.Collections.Generic;
@@ -30,7 +31,37 @@ public static class Zones
     /// </code>
     /// </summary>
     public static event RegisterPluginZones? OnRegisterPluginZones;
+    public static event EnterZone? OnEnterZone;
+    public static event ExitZone? OnExitZone;
     internal static bool PluginZonesHasSubscriptions => OnRegisterPluginZones != null;
+    public static bool IsInsideZone(ulong player, Zone zone) => IsInsideZone(player, zone.Name);
+    public static bool IsInsideZone(ulong player, string zone)
+    {
+        SteamPlayer? pl = PlayerTool.getSteamPlayer(player);
+        if (pl == null || pl.player == null) return false;
+        return pl.player.TryGetComponent(out ZonePlayerComponent comp) && comp.IsInZone(zone);
+    }
+    public static bool IsInsideZone(UnturnedPlayer player, Zone zone) => IsInsideZone(player.Player, zone.Name);
+    public static bool IsInsideZone(UnturnedPlayer player, string zone) => IsInsideZone(player.Player, zone);
+    public static bool IsInsideZone(SteamPlayer player, Zone zone) => IsInsideZone(player.player, zone.Name);
+    public static bool IsInsideZone(SteamPlayer player, string zone) => IsInsideZone(player.player, zone);
+    public static bool IsInsideZone(Player player, Zone zone) => IsInsideZone(player, zone.Name);
+    public static bool IsInsideZone(Player player, string zone)
+    {
+        if (player == null) return false;
+        return player.TryGetComponent(out ZonePlayerComponent comp) && comp.IsInZone(zone);
+    }
+    public static string[] GetAllZoneNames(ulong player)
+    {
+        SteamPlayer? pl = PlayerTool.getSteamPlayer(player);
+        if (pl == null || pl.player == null) return Array.Empty<string>();
+        return pl.player.TryGetComponent(out ZonePlayerComponent comp) ? comp.GetZones() : Array.Empty<string>();
+    }
+    public static string[] GetAllZoneNames(Player player)
+    {
+        if (player == null) return Array.Empty<string>();
+        return player.TryGetComponent(out ZonePlayerComponent comp) ? comp.GetZones() : Array.Empty<string>();
+    }
     internal static void OnRegisterPluginsNeeded(ZoneBuilderCollection zones)
     {
         if (OnRegisterPluginZones == null) return;
@@ -67,12 +98,18 @@ public static class Zones
     {
         player.SendChat("enter_zone_test", zone.Name);
         L.Log("Enter: " + zone.Name + " " + player.name);
+        OnEnterZone?.Invoke(player, zone);
     }
     internal static void OnExit(Player player, Zone zone)
     {
         player.SendChat("exit_zone_test", zone.Name);
         L.Log("Exit: " + zone.Name + " " + player.name);
+        OnExitZone?.Invoke(player, zone);
     }
 }
 
 public delegate void RegisterPluginZones(ZoneBuilderCollection zones);
+
+public delegate void EnterZone(Player player, Zone zone);
+
+public delegate void ExitZone(Player player, Zone zone);

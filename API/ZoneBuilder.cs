@@ -7,6 +7,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
+using System.Xml.Schema;
+using System.Xml.Serialization;
 using UnityEngine;
 
 namespace CommonZones.API;
@@ -14,7 +17,7 @@ namespace CommonZones.API;
 /// Used to build a <see cref="ZoneModel"/> from the public API. Performs error checking.<br/>
 /// Any fields and properties can also be safely set without using "With" methods.
 /// </summary>
-public class ZoneBuilder
+public class ZoneBuilder : IXmlSerializable
 {
     /// <summary>Name of the zone.</summary>
     public string? Name;
@@ -198,7 +201,7 @@ public class ZoneBuilder
             MinimumHeight = MinHeight,
             Name = Name,
             ShortName = ShortName,
-            Tags = Tags ?? new string[0],
+            Tags = Tags ?? Array.Empty<string>(),
             ZoneType = ZoneType,
             UseMapCoordinates = UseMapCoordinates,
             X = X,
@@ -208,5 +211,31 @@ public class ZoneBuilder
         };
         mdl.ValidateRead();
         return mdl;
+    }
+
+    XmlSchema IXmlSerializable.GetSchema() => null!;
+    void IXmlSerializable.ReadXml(XmlReader reader)
+    {
+        ZoneModel mdl = new ZoneModel()
+        {
+            IsTemp = true
+        };
+        Providers.XmlZoneProvider.ReadXml(ref mdl, reader);
+        MaxHeight = mdl.MaximumHeight;
+        MinHeight = mdl.MinimumHeight;
+        Name = mdl.Name;
+        ShortName = mdl.ShortName;
+        Tags = mdl.Tags ?? Array.Empty<string>();
+        ZoneType = mdl.ZoneType;
+        UseMapCoordinates = mdl.UseMapCoordinates;
+        X = mdl.X;
+        Z = mdl.Z;
+        ZoneData = mdl.ZoneData;
+    }
+
+    void IXmlSerializable.WriteXml(XmlWriter writer)
+    {
+        ZoneModel mdl = Build();
+        Providers.XmlZoneProvider.WriteXml(ref mdl, writer);
     }
 }
