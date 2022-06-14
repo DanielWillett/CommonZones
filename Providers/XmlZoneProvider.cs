@@ -155,26 +155,28 @@ internal class XmlZoneProvider : IZoneProvider
             if (reader.NodeType == XmlNodeType.Comment) continue;
             if (reader.NodeType == XmlNodeType.Element)
             {
-                string prop = reader.Value;
-                if (reader.Read())
+                bool empty = reader.IsEmptyElement;
+                string prop = reader.Name;
+                if (prop.Equals("Error", StringComparison.OrdinalIgnoreCase))
+                    throw new ZoneReadException("The zone being read was corrupted on write.") { Data = mdl };
+                else if (prop.Equals("Zone", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!empty && reader.Read())
                 {
-                    if (prop.Equals("error"))
-                        throw new ZoneReadException("The zone being read was corrupted on write.") { Data = mdl };
-                    else if (prop.Equals("name", StringComparison.Ordinal))
+                    if (prop.Equals("Name", StringComparison.OrdinalIgnoreCase))
                         mdl.Name = reader.Value;
-                    else if (prop.Equals("short-name", StringComparison.Ordinal))
+                    else if (prop.Equals("ShortName", StringComparison.OrdinalIgnoreCase))
                         mdl.ShortName = reader.Value;
-                    else if (prop.Equals("x", StringComparison.Ordinal))
+                    else if (prop.Equals("X", StringComparison.OrdinalIgnoreCase))
                         float.TryParse(reader.Value, System.Globalization.NumberStyles.Any, CommonZones.Locale, out mdl.X);
-                    else if (prop.Equals("z", StringComparison.Ordinal))
+                    else if (prop.Equals("Z", StringComparison.OrdinalIgnoreCase))
                         float.TryParse(reader.Value, System.Globalization.NumberStyles.Any, CommonZones.Locale, out mdl.Z);
-                    else if (prop.Equals("use-map-coordinates", StringComparison.Ordinal))
+                    else if (prop.Equals("UseMapCoordinates", StringComparison.OrdinalIgnoreCase))
                         mdl.UseMapCoordinates = reader.Value.Equals("true", StringComparison.OrdinalIgnoreCase);
-                    else if (prop.Equals("min-height", StringComparison.Ordinal))
+                    else if (prop.Equals("MinHeight", StringComparison.OrdinalIgnoreCase))
                         float.TryParse(reader.Value, System.Globalization.NumberStyles.Any, CommonZones.Locale, out mdl.MinimumHeight);
-                    else if (prop.Equals("max-height", StringComparison.Ordinal))
+                    else if (prop.Equals("MaxHeight", StringComparison.OrdinalIgnoreCase))
                         float.TryParse(reader.Value, System.Globalization.NumberStyles.Any, CommonZones.Locale, out mdl.MaximumHeight);
-                    else if (prop.Equals("tags", StringComparison.Ordinal))
+                    else if (prop.Equals("Tags", StringComparison.OrdinalIgnoreCase))
                     {
                         List<string> tags = new List<string>();
                         while (reader.Read())
@@ -199,7 +201,7 @@ internal class XmlZoneProvider : IZoneProvider
                         for (int i = 0; i < ZoneModel.ValidProperties.Length; ++i)
                         {
                             ref ZoneModel.PropertyData data = ref ZoneModel.ValidProperties[i];
-                            if (data.Name.Equals(prop, StringComparison.Ordinal))
+                            if (data.Name.Equals(prop, StringComparison.OrdinalIgnoreCase))
                             {
                                 if (mdl.ZoneType == EZoneType.INVALID || mdl.ZoneType == data.ZoneType)
                                 {
@@ -216,7 +218,7 @@ internal class XmlZoneProvider : IZoneProvider
                                         {
                                             if (reader.NodeType == XmlNodeType.EndElement)
                                             {
-                                                if (reader.Value.Equals("points")) break;
+                                                if (reader.Value.Equals("Points", StringComparison.OrdinalIgnoreCase)) break;
                                                 v2s.Add(current);
                                                 current = default;
                                             }
@@ -225,11 +227,11 @@ internal class XmlZoneProvider : IZoneProvider
                                                 string prop2 = reader.Value;
                                                 if (reader.Read() && reader.NodeType == XmlNodeType.Text)
                                                 {
-                                                    if (prop2.Equals("x", StringComparison.Ordinal))
+                                                    if (prop2.Equals("X", StringComparison.OrdinalIgnoreCase))
                                                     {
                                                         float.TryParse(reader.Value, System.Globalization.NumberStyles.Any, CommonZones.Locale, out current.x);
                                                     }
-                                                    else if (prop2.Equals("z", StringComparison.Ordinal))
+                                                    else if (prop2.Equals("Z", StringComparison.OrdinalIgnoreCase))
                                                     {
                                                         float.TryParse(reader.Value, System.Globalization.NumberStyles.Any, CommonZones.Locale, out current.y);
                                                     }
@@ -242,6 +244,7 @@ internal class XmlZoneProvider : IZoneProvider
                             }
                         }
                     }
+                    while (reader.NodeType != XmlNodeType.EndElement && reader.Read());
                 }
             }
         }
@@ -249,51 +252,51 @@ internal class XmlZoneProvider : IZoneProvider
     }
     public static void WriteXml(ref ZoneModel mdl, XmlWriter writer)
     {
-        writer.WriteStartElement("zone");
+        writer.WriteStartElement("Zone");
         if (!mdl.IsValid || mdl.ZoneType == EZoneType.INVALID)
         {
-            writer.WriteElementString("error", "true");
+            writer.WriteElementString("Error", "true");
             writer.WriteEndElement();
             return;
         }
-        writer.WriteElementString("name", mdl.Name);
+        writer.WriteElementString("Name", mdl.Name);
         if (mdl.ShortName != null)
-            writer.WriteElementString("short-name", mdl.ShortName);
-        writer.WriteElementString("x", mdl.X.ToString(CommonZones.Locale));
-        writer.WriteElementString("z", mdl.Z.ToString(CommonZones.Locale));
+            writer.WriteElementString("ShortName", mdl.ShortName);
+        writer.WriteElementString("X", mdl.X.ToString(CommonZones.Locale));
+        writer.WriteElementString("Z", mdl.Z.ToString(CommonZones.Locale));
         if (mdl.UseMapCoordinates)
-            writer.WriteElementString("use-map-coordinates", mdl.UseMapCoordinates ? "true" : "false");
+            writer.WriteElementString("UseMapCoordinates", mdl.UseMapCoordinates ? "true" : "false");
         if (!float.IsNaN(mdl.MinimumHeight))
-            writer.WriteElementString("min-height", mdl.MinimumHeight.ToString(CommonZones.Locale));
+            writer.WriteElementString("MinHeight", mdl.MinimumHeight.ToString(CommonZones.Locale));
         if (!float.IsNaN(mdl.MaximumHeight))
-            writer.WriteElementString("max-height", mdl.MaximumHeight.ToString(CommonZones.Locale));
+            writer.WriteElementString("MaxHeight", mdl.MaximumHeight.ToString(CommonZones.Locale));
         if (mdl.Tags != null && mdl.Tags.Length > 0)
         {
-            writer.WriteStartElement("tags");
+            writer.WriteStartElement("Tags");
             for (int i = 0; i < mdl.Tags.Length; ++i)
             {
-                writer.WriteElementString("tag", mdl.Tags[i]);
+                writer.WriteElementString("Tag", mdl.Tags[i]);
             }
             writer.WriteEndElement();
         }
         switch (mdl.ZoneType)
         {
             case EZoneType.RECTANGLE:
-                writer.WriteElementString("size-x", mdl.ZoneData.SizeX.ToString(CommonZones.Locale));
-                writer.WriteElementString("size-z", mdl.ZoneData.SizeZ.ToString(CommonZones.Locale));
+                writer.WriteElementString("Size-X", mdl.ZoneData.SizeX.ToString(CommonZones.Locale));
+                writer.WriteElementString("Size-Z", mdl.ZoneData.SizeZ.ToString(CommonZones.Locale));
                 break;
             case EZoneType.CIRCLE:
-                writer.WriteElementString("radius", mdl.ZoneData.Radius.ToString(CommonZones.Locale));
+                writer.WriteElementString("Radius", mdl.ZoneData.Radius.ToString(CommonZones.Locale));
                 break;
             case EZoneType.POLYGON:
                 Vector2[] v2 = mdl.ZoneData.Points;
-                writer.WriteStartElement("points");
+                writer.WriteStartElement("Points");
                 for (int i = 0; i < v2.Length; ++i)
                 {
                     Vector2 v = v2[i];
-                    writer.WriteStartElement("point");
-                    writer.WriteAttributeString("x", v.x.ToString(CommonZones.Locale));
-                    writer.WriteAttributeString("z", v.y.ToString(CommonZones.Locale));
+                    writer.WriteStartElement("Point");
+                    writer.WriteAttributeString("X", v.x.ToString(CommonZones.Locale));
+                    writer.WriteAttributeString("Z", v.y.ToString(CommonZones.Locale));
                     writer.WriteEndElement();
                 }
                 writer.WriteEndElement();
